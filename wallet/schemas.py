@@ -39,3 +39,23 @@ class TopUp(BaseModel):
     account_number: str
     amount: float
     
+    class Config:
+        from_attributes = True
+    
+    
+class VerifyAccount(BaseModel):
+    account_number: str
+    
+    class Config:
+        from_attributes = True
+    
+
+class ShowReceiverAccount(BaseModel):
+    username: str
+    account_number: str
+    phone: str
+    email: str
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True

@@ -30,6 +30,7 @@ class User(Base):
     level_1 = Column(String, default=True)
     level_2 = Column(String, default=False)
     level_3 = Column(String, default=False)
+    locked_funds = Column(Float, default=0)
     
     
     

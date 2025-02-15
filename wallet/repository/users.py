@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status, Depends
-from ..schemas import RegisterUser, ShowProfile, TopUp
+from ..schemas import RegisterUser, ShowProfile, TopUp, VerifyAccount, ShowReceiverAccount
 from ..hashing import Hash
 from ..database import get_db
 from ..models import User
@@ -164,3 +164,25 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User):
     db.commit()
 
     return {"message": f"Transfer of ₦{request.amount:,.2f} successful to {recipient.username}"}
+
+
+
+
+# Verify Account
+def verify_account(id: str, request: VerifyAccount, db: Session, current_user: User):
+    user = db.query(User).filter(User.id == id).first()
+    user_account = db.query(User).filter(User.account_number == request.account_number).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not user_account:
+        raise HTTPException(status_code=400, detail="Invalid account number")
+    
+    return ShowReceiverAccount(**{**user_account.__dict__})
+    
+
+
+
+
+# Lock funds for savings
+# def lock_funds
