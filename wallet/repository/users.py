@@ -201,7 +201,7 @@ def verify_account(id: str, request: VerifyAccount, db: Session, current_user: U
 
 
 
-# Lock funds for savings
+# Locking funds for savings
 def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
     user = db.query(User).filter(User.id == id).first()
     
