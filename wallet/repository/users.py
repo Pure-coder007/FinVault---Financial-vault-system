@@ -201,7 +201,7 @@ def verify_account(id: str, request: VerifyAccount, db: Session, current_user: U
 
 
 
-# Lock funds for savings
+# Lock funds for savings.
 def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
     user = db.query(User).filter(User.id == id).first()
     
@@ -218,6 +218,7 @@ def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
     
     if not bcrypt.checkpw(request.transaction_pin.encode(), user.transaction_pin.encode()):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid transaction pin")
+    
     
     
     
