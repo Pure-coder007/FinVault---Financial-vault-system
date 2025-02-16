@@ -31,6 +31,7 @@ class User(Base):
     level_2 = Column(String, default=False)
     level_3 = Column(String, default=False)
     locked_funds = Column(Float, default=0)
+    transaction_pin = Column(String)
     
     
     

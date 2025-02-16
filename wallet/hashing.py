@@ -10,3 +10,14 @@ class Hash():
     
     def verify(plain_password, hashed_password):
         return pwd_context.verify(plain_password, hashed_password)
+    
+    
+    
+    
+class PinHash():
+    def bcrypt(transaction_pin: str):
+        hashed_pin= pwd_context.hash(transaction_pin)
+        return hashed_pin
+    
+    def verify(plain_pin, hashed_pin):
+        return pwd_context.verify(plain_pin, hashed_pin)

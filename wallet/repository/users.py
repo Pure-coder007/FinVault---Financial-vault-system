@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status, Depends
-from ..schemas import RegisterUser, ShowProfile, TopUp, VerifyAccount, ShowReceiverAccount
-from ..hashing import Hash
+from ..schemas import RegisterUser, ShowProfile, TopUp, VerifyAccount, ShowReceiverAccount, LockFunds
+from ..hashing import Hash, PinHash
 from ..database import get_db
 from ..models import User
-import random
+import random, bcrypt
 from datetime import datetime
 from ..utils.func import *
 from .. import auth, token, models
@@ -23,6 +23,14 @@ def create_user(request: RegisterUser, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passwords do not match")
     
     
+    transaction_pin = request.transaction_pin
+    if not transaction_pin:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Transaction pin is required")
+    
+    if len(transaction_pin) != 4 or not transaction_pin.isdigit():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Transaction pin must be 4 digits")
+    
+    
 
     # Create user instance
     new_user = User(
@@ -34,7 +42,8 @@ def create_user(request: RegisterUser, db: Session = Depends(get_db)):
         nin=request.nin,
         account_number=generate_account_number(db),
         wallet_balance=50000,
-        book_balance=50000
+        book_balance=50000,
+        transaction_pin=PinHash.bcrypt(request.transaction_pin)
     )
     
     # check if email is valid
@@ -52,6 +61,8 @@ def create_user(request: RegisterUser, db: Session = Depends(get_db)):
     
     if username_exists(request.username, db):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already exists")
+    
+    
 
     
 
@@ -100,7 +111,7 @@ def get_wallet_balance(id: str, db: Session, current_user: models.User):
 # Add funds to wallet
 def add_funds(id: str, request: TopUp, db: Session, current_user: models.User):
     user = db.query(User).filter(User.id == id).first()
-    print(user.account_number, "user")
+    print(user.account_number, user.transaction_pin, "user")
     
     if request.account_number != user.account_number:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account number")
@@ -114,6 +125,9 @@ def add_funds(id: str, request: TopUp, db: Session, current_user: models.User):
         db.commit()
         db.refresh(user)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Account balance cannot exceed ₦200,000.00, but ₦{request.amount:,.2f} has been added to your book balance pending upgrade.")
+    
+    if not bcrypt.checkpw(request.transaction_pin.encode(), user.transaction_pin.encode()):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid transaction pin")
 
 
     # Add funds to wallet
@@ -148,6 +162,9 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User):
         raise HTTPException(status_code=400, detail="Please enter a valid amount.")
     if request.amount > user.wallet_balance:
         raise HTTPException(status_code=400, detail="Insufficient funds")
+    
+    if not bcrypt.checkpw(request.transaction_pin.encode(), user.transaction_pin.encode()):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid transaction pin")
 
     # Restrict transfer amount based on account level
     if not (user.level_2.lower() == "true" or user.level_3.lower() == "true") and request.amount > 20000:
@@ -185,4 +202,35 @@ def verify_account(id: str, request: VerifyAccount, db: Session, current_user: U
 
 
 # Lock funds for savings
-# def lock_funds
+def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
+    user = db.query(User).filter(User.id == id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if request.amount <= 0:
+        raise HTTPException(status_code=400, detail="Please enter a valid amount.")
+    if request.amount > user.wallet_balance:
+        raise HTTPException(status_code=400, detail="Insufficient funds")
+    
+    if request.release_date < datetime.now():
+        raise HTTPException(status_code=400, detail="Please enter a valid release date.")
+    
+    
+    if not bcrypt.checkpw(request.transaction_pin.encode(), user.transaction_pin.encode()):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid transaction pin")
+    
+    
+    
+    user.wallet_balance -= request.amount
+    user.locked_funds += request.amount
+    user.book_balance += request.amount
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "message": f"₦{request.amount:,.2f} has been locked for savings.",
+        "wallet_balance": f"₦{user.wallet_balance:,.2f}",
+        "book_balance": f"₦{user.book_balance:,.2f}",
+        "locked_amount": f"₦{request.amount:,.2f}",  
+        "release_date": request.release_date  
+    }

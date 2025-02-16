@@ -9,6 +9,7 @@ class RegisterUser(BaseModel):
     password: str
     confirm_password: str
     phone: str
+    transaction_pin: str
     bvn: Optional[int]
     nin: Optional[int]
 
@@ -38,6 +39,7 @@ class ShowProfile(BaseModel):
 class TopUp(BaseModel):
     account_number: str
     amount: float
+    transaction_pin: str
     
     class Config:
         from_attributes = True
@@ -56,6 +58,25 @@ class ShowReceiverAccount(BaseModel):
     phone: str
     email: str
     created_at: datetime
+    
+    class Config:
+        from_attributes = True
+        
+        
+        
+class LockFunds(BaseModel):
+    amount: float
+    release_date: datetime
+    transaction_pin: str
+    
+    class Config:
+        from_attributes = True
+        
+        
+
+class LockedResponse(BaseModel):
+    locked_amount: float
+    release_date: datetime
     
     class Config:
         from_attributes = True
