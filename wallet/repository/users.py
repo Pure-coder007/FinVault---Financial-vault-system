@@ -185,7 +185,7 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User):
 
 
 
-# Verify Account
+# Verify Account.
 def verify_account(id: str, request: VerifyAccount, db: Session, current_user: User):
     user = db.query(User).filter(User.id == id).first()
     user_account = db.query(User).filter(User.account_number == request.account_number).first()
