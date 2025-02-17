@@ -234,8 +234,7 @@ def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
     # Add locked fund to the session
     db.add(locked_fund)
     
-    # Update book balance if necessary
-    # user.book_balance += user.wallet_balance
+   
 
     # Commit the changes to the database
     db.commit()
