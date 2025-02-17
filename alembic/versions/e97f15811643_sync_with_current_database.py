@@ -1,8 +1,8 @@
-"""Initial migration
+"""Sync with current database
 
-Revision ID: 0fb15f6631e8
-Revises: 9f4d4811e46d
-Create Date: 2025-02-16 08:47:31.131558
+Revision ID: e97f15811643
+Revises: d360bac96668
+Create Date: 2025-02-17 15:47:25.160183
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '0fb15f6631e8'
-down_revision: Union[str, None] = '9f4d4811e46d'
+revision: str = 'e97f15811643'
+down_revision: Union[str, None] = 'd360bac96668'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -45,6 +45,7 @@ def downgrade() -> None:
     sa.Column('level_2', sa.VARCHAR(), autoincrement=False, nullable=True),
     sa.Column('level_3', sa.VARCHAR(), autoincrement=False, nullable=True),
     sa.Column('locked_funds', sa.DOUBLE_PRECISION(precision=53), autoincrement=False, nullable=True),
+    sa.Column('transaction_pin', sa.VARCHAR(), autoincrement=False, nullable=True),
     sa.PrimaryKeyConstraint('id', name='users_pkey')
     )
     # ### end Alembic commands ###

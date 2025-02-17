@@ -3,7 +3,7 @@ from fastapi import HTTPException, status, Depends
 from ..schemas import RegisterUser, ShowProfile, TopUp, VerifyAccount, ShowReceiverAccount, LockFunds
 from ..hashing import Hash, PinHash
 from ..database import get_db
-from ..models import User
+from ..models import User, LockedFunds
 import random, bcrypt
 from datetime import datetime
 from ..utils.func import *
@@ -41,7 +41,7 @@ def create_user(request: RegisterUser, db: Session = Depends(get_db)):
         bvn=request.bvn,
         nin=request.nin,
         account_number=generate_account_number(db),
-        wallet_balance=50000,
+        # wallet_balance=50000,
         book_balance=50000,
         transaction_pin=PinHash.bcrypt(request.transaction_pin)
     )
@@ -113,6 +113,9 @@ def add_funds(id: str, request: TopUp, db: Session, current_user: models.User):
     user = db.query(User).filter(User.id == id).first()
     print(user.account_number, user.transaction_pin, "user")
     
+    if not bcrypt.checkpw(request.transaction_pin.encode(), user.transaction_pin.encode()):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid transaction pin")
+    
     if request.account_number != user.account_number:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account number")
     
@@ -120,14 +123,14 @@ def add_funds(id: str, request: TopUp, db: Session, current_user: models.User):
         
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please enter a valid amount.")
     
+    
+    
     if request.amount >= 200000 or user.wallet_balance >= 200000:
         user.book_balance += request.amount
         db.commit()
         db.refresh(user)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Account balance cannot exceed ₦200,000.00, but ₦{request.amount:,.2f} has been added to your book balance pending upgrade.")
     
-    if not bcrypt.checkpw(request.transaction_pin.encode(), user.transaction_pin.encode()):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid transaction pin")
 
 
     # Add funds to wallet
@@ -215,19 +218,29 @@ def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
     if request.release_date < datetime.now():
         raise HTTPException(status_code=400, detail="Please enter a valid release date.")
     
-    
     if not bcrypt.checkpw(request.transaction_pin.encode(), user.transaction_pin.encode()):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid transaction pin")
     
-    
-    
-    
+    # Deduct from wallet balance
     user.wallet_balance -= request.amount
-    user.locked_funds += request.amount
-    user.book_balance += request.amount
+
+    # Create a new LockedFunds entry
+    locked_fund = LockedFunds(
+        user_id=user.id,
+        amount=request.amount,
+        release_date=request.release_date
+    )
+    
+    # Add locked fund to the session
+    db.add(locked_fund)
+    
+    # Update book balance if necessary
+    # user.book_balance += user.wallet_balance
+
+    # Commit the changes to the database
     db.commit()
     db.refresh(user)
-    
+
     return {
         "message": f"₦{request.amount:,.2f} has been locked for savings.",
         "wallet_balance": f"₦{user.wallet_balance:,.2f}",
@@ -235,3 +248,5 @@ def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
         "locked_amount": f"₦{request.amount:,.2f}",  
         "release_date": request.release_date  
     }
+
+    

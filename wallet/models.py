@@ -30,8 +30,21 @@ class User(Base):
     level_1 = Column(String, default=True)
     level_2 = Column(String, default=False)
     level_3 = Column(String, default=False)
-    locked_funds = Column(Float, default=0)
     transaction_pin = Column(String)
+    locked_funds = relationship("LockedFunds", back_populates="user", cascade="all, delete")
+    
+    
+    
+class LockedFunds(Base):
+    __tablename__ = "locked_funds"
+    id = Column(String, primary_key=True, default=random_id)
+    user_id = Column(String, ForeignKey("users.id"))
+    amount = Column(Float, default=0.0)
+    release_date = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    user = relationship("User", back_populates="locked_funds")
+    
     
     
     
