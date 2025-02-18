@@ -78,3 +78,39 @@ def format_date(dt):
     day = dt.day
     suffix = "th" if 11 <= day <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
     return dt.strftime(f"%-d{suffix} %b %Y")
+
+
+
+
+
+def check_daily_transfer_limit(id: str, db: Session, current_user: User):
+    # Fetch the user
+    user = db.query(models.User).filter(models.User.id == id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get today's date range
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+
+    # Calculate total transactions for today
+    total_transferred_today = (
+        db.query(func.sum(models.TransactionHistory.amount))
+        .filter(
+            models.TransactionHistory.sender == user.id,
+            models.TransactionHistory.date >= today_start,
+            models.TransactionHistory.date < today_end
+        )
+        .scalar() or 0  # Default to 0 if there are no transactions
+    )
+
+    # Check if total transfers exceed the limit
+    if total_transferred_today >= user.transaction_limit_per_day:
+        raise HTTPException(status_code=400, detail="Daily transfer limit exceeded.")
+
+    return {
+        "message": "You have not exceeded your daily transfer limit.",
+        "total_transferred_today": f"₦{total_transferred_today:,.2f}",
+        "daily_limit": f"₦{user.transaction_limit_per_day:,.2f}"
+    }

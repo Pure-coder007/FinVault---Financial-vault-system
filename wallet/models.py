@@ -31,6 +31,8 @@ class User(Base):
     level_2 = Column(String, default=False)
     level_3 = Column(String, default=False)
     transaction_pin = Column(String)
+    transaction_limit_per_transaction = Column(Float, default=20000.0)
+    transaction_limit_per_day = Column(Float, default=50000.0)
     locked_funds = relationship("LockedFunds", back_populates="user", cascade="all, delete")
     
     
@@ -48,6 +50,17 @@ class LockedFunds(Base):
     
     
     
+class Transfers(Base):
+    __tablename__ = "transfers"
     
+    id = Column(String, primary_key=True, default=random_id)
+    sender_id = Column(String, ForeignKey("users.id"))
+    receiver_id = Column(String, ForeignKey("users.id"))
+    amount = Column(Float, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    sender = relationship("User", foreign_keys=[sender_id])
+    receiver = relationship("User", foreign_keys=[receiver_id])
+
     
   

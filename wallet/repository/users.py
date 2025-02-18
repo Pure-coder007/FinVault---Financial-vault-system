@@ -8,6 +8,7 @@ import random, bcrypt
 from datetime import datetime
 from ..utils.func import *
 from .. import auth, token, models
+from sqlalchemy import func
 
 
 
@@ -41,7 +42,7 @@ def create_user(request: RegisterUser, db: Session = Depends(get_db)):
         bvn=request.bvn,
         nin=request.nin,
         account_number=generate_account_number(db),
-        # wallet_balance=50000,
+        wallet_balance=50000,
         book_balance=50000,
         transaction_pin=PinHash.bcrypt(request.transaction_pin)
     )
@@ -111,35 +112,62 @@ def get_wallet_balance(id: str, db: Session, current_user: models.User):
 # Add funds to wallet
 def add_funds(id: str, request: TopUp, db: Session, current_user: models.User):
     user = db.query(User).filter(User.id == id).first()
-    print(user.account_number, user.transaction_pin, "user")
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     
+    # Validate transaction PIN
     if not bcrypt.checkpw(request.transaction_pin.encode(), user.transaction_pin.encode()):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid transaction pin")
-    
+
+    # Validate account number
     if request.account_number != user.account_number:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account number")
-    
+
+    # Validate amount
     if request.amount <= 0:
-        
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please enter a valid amount.")
-    
-    
-    
-    if request.amount >= 200000 or user.wallet_balance >= 200000:
-        user.book_balance += request.amount
+
+    # Wallet limits
+    MAX_WALLET_BALANCE = 200000.0
+    MAX_SINGLE_TRANSACTION = 20000.0
+
+    # If user is Level 1, enforce per-transaction limit
+    if user.level_2.lower() == "false" and user.level_3.lower() == "false":
+        if request.amount > MAX_SINGLE_TRANSACTION:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Level 1 accounts cannot add more than ₦{MAX_SINGLE_TRANSACTION:,.2f} per transaction. Please enter a lower amount."
+            )
+
+    # Check if deposit exceeds wallet limit
+    if user.wallet_balance + request.amount > MAX_WALLET_BALANCE:
+        excess_amount = (user.wallet_balance + request.amount) - MAX_WALLET_BALANCE
+        amount_to_wallet = request.amount - excess_amount
+
+        # Add only up to ₦200,000 to the wallet
+        user.wallet_balance = MAX_WALLET_BALANCE
+        user.book_balance += excess_amount  # Move excess funds to book balance
         db.commit()
         db.refresh(user)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Account balance cannot exceed ₦200,000.00, but ₦{request.amount:,.2f} has been added to your book balance pending upgrade.")
-    
 
+        return {
+            "message": f"₦{amount_to_wallet:,.2f} added to main wallet, ₦{excess_amount:,.2f} moved to book balance due to wallet limit.",
+            "wallet_balance": f"₦{user.wallet_balance:,.2f}",
+            "book_balance": f"₦{user.book_balance:,.2f}"
+        }
 
-    # Add funds to wallet
+    # Add funds normally if within limits
     user.wallet_balance += request.amount
-    user.book_balance += request.amount
     db.commit()
     db.refresh(user)
 
-    return {"message": f"₦{request.amount:,.2f} has been added to your wallet.", "wallet_balance": f"₦{user.wallet_balance:,.2f}", "book_balance": f"₦{user.book_balance:,.2f}"}
+    return {
+        "message": f"₦{request.amount:,.2f} has been added to your wallet.",
+        "wallet_balance": f"₦{user.wallet_balance:,.2f}",
+        "book_balance": f"₦{user.book_balance:,.2f}"
+    }
+
 
 
 
@@ -150,6 +178,11 @@ def is_upgraded(id: str, db: Session, current_user: models.User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot make a transfer of more than ₦20,000.00 until you upgrade your account")
     
 
+
+
+
+
+    
 
 
 # Send money to another user
@@ -165,25 +198,66 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User):
         raise HTTPException(status_code=400, detail="Please enter a valid amount.")
     if request.amount > user.wallet_balance:
         raise HTTPException(status_code=400, detail="Insufficient funds")
-    
     if not bcrypt.checkpw(request.transaction_pin.encode(), user.transaction_pin.encode()):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid transaction pin")
+    
+
+    # Get transaction limits from the User model
+    max_per_transaction = user.transaction_limit_per_transaction
+    max_per_day = user.transaction_limit_per_day
 
     # Restrict transfer amount based on account level
-    if not (user.level_2.lower() == "true" or user.level_3.lower() == "true") and request.amount > 20000:
-        print(user.level_2, user.level_3)
+    if not (user.level_2.lower() == "true" or user.level_3.lower() == "true") and request.amount > max_per_transaction:
         raise HTTPException(
             status_code=403,
-            detail="You cannot transfer more than ₦20,000 in a single transfer, until you upgrade your account."
+            detail=f"You cannot transfer more than ₦{max_per_transaction:,.2f} in a single transaction until you upgrade your account."
         )
 
-    # Deduct from sender, add to recipient
-    user.wallet_balance -= request.amount
-    # user.book_balance == user.wallet_balance
-    recipient.wallet_balance += request.amount
-    db.commit()
+    # Check Daily Transfer Limit
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
 
-    return {"message": f"Transfer of ₦{request.amount:,.2f} successful to {recipient.username}"}
+    total_transferred_today = (
+        db.query(func.sum(models.Transfers.amount))
+        .filter(
+            models.Transfers.sender_id == user.id,
+            models.Transfers.timestamp >= today_start,
+            models.Transfers.timestamp < today_end
+        )
+        .scalar() or 0
+    )
+
+    if total_transferred_today + request.amount > max_per_day:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Daily transfer limit exceeded. You can only transfer ₦{max_per_day:,.2f} per day."
+        )
+
+    try:
+        # Deduct from sender, add to recipient
+        user.wallet_balance -= request.amount
+        recipient.wallet_balance += request.amount
+
+        # Log transaction in Transfers table
+        transfer = models.Transfers(
+            sender_id=user.id,
+            receiver_id=recipient.id,
+            amount=request.amount,
+            timestamp=datetime.utcnow()
+        )
+        db.add(transfer)
+
+        db.commit()
+        db.refresh(user)
+        db.refresh(recipient)
+
+        return {"message": f"Transfer of ₦{request.amount:,.2f} successful to {recipient.username}"}
+
+    except Exception as e:
+        db.rollback()  # Ensure rollback on failure
+        raise HTTPException(status_code=500, detail="Transaction failed. Please try again.")
+    
+    
 
 
 
