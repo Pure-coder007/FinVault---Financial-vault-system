@@ -228,13 +228,12 @@ def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
     locked_fund = LockedFunds(
         user_id=user.id,
         amount=request.amount,
-        release_date=request.release_date
+        release_date=request.release_date.strftime("%Y-%m-%d")
     )
     
     # Add locked fund to the session
     db.add(locked_fund)
     
-   
 
     # Commit the changes to the database
     db.commit()
@@ -245,7 +244,20 @@ def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
         "wallet_balance": f"₦{user.wallet_balance:,.2f}",
         "book_balance": f"₦{user.book_balance:,.2f}",
         "locked_amount": f"₦{request.amount:,.2f}",  
-        "release_date": request.release_date  
+        "release_date": format_date(request.release_date) 
     }
 
     
+
+
+# Get wallet transaction limit
+
+# def get_wallet_limits(id: str, db: Session, current_user: User):
+#     user = db.query(User).filter(User.id == id).first()
+
+#     if not user:
+#         raise HTTPException(status_code=404, detail="User not found")
+    
+#     if user.level_2.lower() == "false" or user.level_3.lower() == "false":
+#         return {
+#             f"You are a level 1 user. Your wallet transaction limit per transaction is  ₦{user.wallet_transaction_limit:,.2f}"
