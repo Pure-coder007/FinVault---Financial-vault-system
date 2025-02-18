@@ -5,7 +5,7 @@ from ..hashing import Hash, PinHash
 from ..database import get_db
 from ..models import User, LockedFunds
 import random, bcrypt
-from datetime import datetime
+from datetime import datetime, timedelta
 from ..utils.func import *
 from .. import auth, token, models
 from sqlalchemy import func
@@ -230,7 +230,7 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User):
     if total_transferred_today + request.amount > max_per_day:
         raise HTTPException(
             status_code=400,
-            detail=f"Daily transfer limit exceeded. You can only transfer ₦{max_per_day:,.2f} per day."
+            detail=f"Daily transfer limit exceeded. You can only transfer ₦{max_per_day:,.2f} per day until you upgrade your account."
         )
 
     try:
@@ -324,14 +324,3 @@ def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
     
 
 
-# Get wallet transaction limit
-
-# def get_wallet_limits(id: str, db: Session, current_user: User):
-#     user = db.query(User).filter(User.id == id).first()
-
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-    
-#     if user.level_2.lower() == "false" or user.level_3.lower() == "false":
-#         return {
-#             f"You are a level 1 user. Your wallet transaction limit per transaction is  ₦{user.wallet_transaction_limit:,.2f}"
