@@ -318,7 +318,6 @@ def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
     # Deduct from wallet balance
     user.wallet_balance -= request.amount
 
-    # Create a new LockedFunds entry
     locked_fund = LockedFunds(
         user_id=user.id,
         amount=request.amount,
