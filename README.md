@@ -25,14 +25,6 @@
 | **GET** | `/transactions/` | Get transaction history (filter by date/type) |
 
 
-## Payments
-| Method | Endpoint | Description |
-|--------|----------|------------|
-| **POST** | `/payment/request/` | Request money from another user |
-| **POST** | `/payment/approve/` | Approve a payment request |
-| **POST** | `/payment/reject/` | Reject a payment request |
-
-
 ## Loan Services
 | Method | Endpoint | Description |
 |--------|----------|------------|

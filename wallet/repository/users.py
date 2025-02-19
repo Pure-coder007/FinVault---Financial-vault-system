@@ -1,11 +1,14 @@
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status, Depends
+from dotenv import load_dotenv
+from fastapi import HTTPException, status, Depends, BackgroundTasks
 from ..schemas import RegisterUser, ShowProfile, TopUp, VerifyAccount, ShowReceiverAccount, LockFunds, TransactionFilter
 from ..hashing import Hash, PinHash
 from ..database import get_db
 from ..models import User, LockedFunds
 import random, bcrypt
 from datetime import datetime, timedelta
+import os
 from ..utils.func import *
 from .. import auth, token, models
 from sqlalchemy import func
@@ -14,26 +17,85 @@ from sqlalchemy import asc, desc
 
 
 
+# Load environment variables from .env
+load_dotenv()
 
 
-# Create a new user
-def create_user(request: RegisterUser, db: Session = Depends(get_db)):
+
+
+
+
+
+
+def create_user(
+    request: RegisterUser, 
+    db: Session, 
+    background_tasks: BackgroundTasks,
+):
     # Validate password
-    validate_password(request.password)
+    if len(request.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Password must be at least 8 characters long"
+        )
+    if not any(char.isdigit() for char in request.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Password must contain at least one number"
+        )
+    if not any(char.isupper() for char in request.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Password must contain at least one uppercase letter"
+        )
+    if not any(char.islower() for char in request.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Password must contain at least one lowercase letter"
+        )
+    if not any(char in "!@#$%^&*()-_=+[]{};:'\",.<>?/" for char in request.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Password must contain at least one special character"
+        )
 
     # Check if passwords match
     if request.password != request.confirm_password:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passwords do not match")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Passwords do not match"
+        )
     
+    # Validate transaction PIN
+    if not request.transaction_pin or len(request.transaction_pin) != 4 or not request.transaction_pin.isdigit():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Transaction PIN must be 4 digits"
+        )
     
-    transaction_pin = request.transaction_pin
-    if not transaction_pin:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Transaction pin is required")
-    
-    if len(transaction_pin) != 4 or not transaction_pin.isdigit():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Transaction pin must be 4 digits")
-    
-    
+    # Validate email
+    if "@" not in request.email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Invalid email address"
+        )
+
+    # Check if email, phone, or username already exists
+    if email_exists(request.email, db):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Email already exists"
+        )
+    if phone_number_exists(request.phone, db):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Phone number already exists"
+        )
+    if username_exists(request.username, db):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Username already exists"
+        )
 
     # Create user instance
     new_user = User(
@@ -49,31 +111,126 @@ def create_user(request: RegisterUser, db: Session = Depends(get_db)):
         transaction_pin=PinHash.bcrypt(request.transaction_pin)
     )
     
-    # check if email is valid
-    if "@" not in request.email:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email address")
-    
-    if email_exists(request.email, db):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists")
-    
-    if validate_phone_number(request):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid phone number")
-    
-    if phone_number_exists(request.phone, db):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Phone number already exists")
-    
-    if username_exists(request.username, db):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already exists")
-    
-    
-
-    
-
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
-    return new_user
+    # Send welcome email in the background
+    email_subject = "Welcome to Our Platform – Your Account is Ready!"
+    email_body = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            background-image: url('https://media.istockphoto.com/id/1365436662/photo/successful-partnership.jpg?s=612x612&w=0&k=20&c=B1xspe9Q5WMsLc7Hc9clR8MWUL4bsK1MfUdDNVNR2Xg='); 
+            background-size: cover;
+        }}
+        .container {{
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            margin: auto;
+        }}
+        .header {{
+            background: #007bff;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            border-radius: 10px 10px 0 0;
+        }}
+        .logo {{
+            text-align: center;
+            margin-bottom: 20px;
+        }}
+        .logo img {{
+            max-width: 150px; 
+            height: auto;
+        }}
+        .content {{
+            padding: 20px;
+            font-size: 16px;
+            color: #333;
+        }}
+        .content p {{
+            line-height: 1.6;
+        }}
+        .footer {{
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+            color: #666;
+        }}
+        .btn {{
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }}
+        .btn:hover {{
+            background: #0056b3;
+        }}
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">Welcome to Our Platform!</div>
+        
+        <div class="logo">
+            <img src="https://cdn5.vectorstock.com/i/1000x1000/80/74/financial-accounting-logo-vector-27218074.jpg" alt="Company Logo"> 
+        </div>
+        
+        <div class="content">
+            <p>Dear <strong>{new_user.username}</strong>,</p>
+            
+            <p>Congratulations! Your account has been successfully created, and we are thrilled to welcome you to our community. At FinVault, we strive to provide you with the best services and support to make your experience seamless and enjoyable.</p>
+            
+            <p><strong>Your Account Number:</strong> {new_user.account_number}</p>
+
+            <p>With your new account, you can:</p>
+            <ul>
+                <li>Access a wide range of financial services tailored to your needs.</li>
+                <li>Manage your transactions effortlessly through our user-friendly interface.</li>
+                <li>Receive personalized support from our dedicated customer service team.</li>
+            </ul>
+
+            <p>We encourage you to start exploring our platform today. Take advantage of our resources and tools designed to help you achieve your financial goals.</p>
+            
+            <p>If you have any questions or need assistance, please do not hesitate to reach out to our support team. We are here to help you every step of the way!</p>
+
+            <p>Thank you for choosing FinVault. We look forward to serving you.</p>
+
+            <p>Best regards,</p>
+            <p><strong>FinVault Support Team</strong></p>
+        </div>
+
+        <div class="footer">
+            &copy; {datetime.utcnow().year} FinVault | All rights reserved.
+        </div>
+    </div>
+
+</body>
+</html>
+"""
+
+    
+    background_tasks.add_task(send_email, email_subject, [new_user.email], email_body)
+
+    return {"message": "User created successfully. A confirmation email has been sent."}
 
 
 

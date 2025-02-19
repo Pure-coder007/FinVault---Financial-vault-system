@@ -6,6 +6,52 @@ from .. database import get_db
 from .. models import User
 import random
 from datetime import datetime
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from dotenv import load_dotenv
+import os
+# from mail_config import fm  # Import FastMail instance
+from typing import List
+
+
+# Load environment variables from .env
+load_dotenv()
+
+
+# Configure FastMail connection
+mail_config = ConnectionConfig(
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+    MAIL_FROM=os.getenv("MAIL_DEFAULT_SENDER"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT")),
+    MAIL_SERVER=os.getenv("MAIL_SERVER"),
+    MAIL_STARTTLS=os.getenv("MAIL_STARTTLS") == "True",  # Use correct boolean conversion
+    MAIL_SSL_TLS=os.getenv("MAIL_SSL_TLS") == "True",  # Use correct boolean conversion
+    USE_CREDENTIALS=True
+)
+
+fm = FastMail(mail_config) 
+
+
+
+
+
+
+
+
+
+async def send_email(subject: str, recipients: List[str], body: str):
+    message = MessageSchema(
+        subject=subject,
+        recipients=recipients,  
+        body=body,
+        subtype="html"  
+    )
+    
+    await fm.send_message(message)
+
+
+
+
 
 
 # validate password
@@ -114,3 +160,13 @@ def check_daily_transfer_limit(id: str, db: Session, current_user: User):
         "total_transferred_today": f"₦{total_transferred_today:,.2f}",
         "daily_limit": f"₦{user.transaction_limit_per_day:,.2f}"
     }
+    
+    
+    
+    
+    
+    
+    
+
+
+
