@@ -28,9 +28,9 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)):
     try:
-        print(f"Received Token: {token}")  # Debugging step
+        # print(f"Received Token: {token}")  # Debugging step
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print(f"Decoded Payload: {payload}")  # Debugging step
+        # print(f"Decoded Payload: {payload}")  # Debugging step
         
         user_id: str = payload.get("user_id")
         if user_id is None:
