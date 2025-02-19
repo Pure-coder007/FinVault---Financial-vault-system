@@ -250,11 +250,9 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User):
     db.refresh(transfer)
 
     try:
-        # Deduct from sender, add to recipient
         user.wallet_balance -= request.amount
         recipient.wallet_balance += request.amount
 
-        # Update transaction status to "completed"
         transfer.status = "completed"
         db.commit()
         db.refresh(user)
