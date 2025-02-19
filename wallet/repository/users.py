@@ -329,7 +329,6 @@ def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
     db.add(locked_fund)
     
 
-    # Commit the changes to the database
     db.commit()
     db.refresh(user)
 
