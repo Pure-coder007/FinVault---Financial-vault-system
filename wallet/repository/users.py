@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status, Depends
-from ..schemas import RegisterUser, ShowProfile, TopUp, VerifyAccount, ShowReceiverAccount, LockFunds
+from ..schemas import RegisterUser, ShowProfile, TopUp, VerifyAccount, ShowReceiverAccount, LockFunds, TransactionFilter
 from ..hashing import Hash, PinHash
 from ..database import get_db
 from ..models import User, LockedFunds
@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from ..utils.func import *
 from .. import auth, token, models
 from sqlalchemy import func
+
 
 
 
@@ -187,8 +188,11 @@ def is_upgraded(id: str, db: Session, current_user: models.User):
 
 # Send money to another user
 def send_money(id: str, request: TopUp, db: Session, current_user: User):
-    user = db.query(User).filter(User.id == id).first()
-    recipient = db.query(User).filter(User.account_number == request.account_number).first()
+    user = db.query(models.User).filter(models.User.id == id).first()
+    recipient = db.query(models.User).filter(models.User.account_number == request.account_number).first()
+    
+    if user.id == recipient.id:
+        raise HTTPException(status_code=400, detail="Sorry you cannot do a transfer to yourself.")
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -201,8 +205,7 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User):
     if not bcrypt.checkpw(request.transaction_pin.encode(), user.transaction_pin.encode()):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid transaction pin")
     
-
-    # Get transaction limits from the User model
+    # Get transaction limits
     max_per_transaction = user.transaction_limit_per_transaction
     max_per_day = user.transaction_limit_per_day
 
@@ -221,8 +224,8 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User):
         db.query(func.sum(models.Transfers.amount))
         .filter(
             models.Transfers.sender_id == user.id,
-            models.Transfers.timestamp >= today_start,
-            models.Transfers.timestamp < today_end
+            models.Transfers.date_sent >= today_start,
+            models.Transfers.date_sent < today_end
         )
         .scalar() or 0
     )
@@ -233,28 +236,44 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User):
             detail=f"Daily transfer limit exceeded. You can only transfer ₦{max_per_day:,.2f} per day until you upgrade your account."
         )
 
+    # Create a transfer record with "pending" status
+    transfer = models.Transfers(
+        sender_id=user.id,
+        receiver_id=recipient.id,
+        amount=request.amount,
+        date_sent=datetime.utcnow(),
+        status="pending"
+    )
+    db.add(transfer)
+    db.commit()
+    db.refresh(transfer)
+
     try:
         # Deduct from sender, add to recipient
         user.wallet_balance -= request.amount
         recipient.wallet_balance += request.amount
 
-        # Log transaction in Transfers table
-        transfer = models.Transfers(
-            sender_id=user.id,
-            receiver_id=recipient.id,
-            amount=request.amount,
-            timestamp=datetime.utcnow()
-        )
-        db.add(transfer)
-
+        # Update transaction status to "completed"
+        transfer.status = "completed"
         db.commit()
         db.refresh(user)
         db.refresh(recipient)
+        db.refresh(transfer)
 
-        return {"message": f"Transfer of ₦{request.amount:,.2f} successful to {recipient.username}"}
+        return {"message": f"Transfer of ₦{request.amount:,.2f} successful to {recipient.username}",
+                "wallet_balance": f"₦{user.wallet_balance:,.2f}",
+                "book_balance": f"₦{user.book_balance:,.2f}",
+                "transaction_ref": transfer.transaction_ref,
+                "session_id": transfer.session_id}
 
     except Exception as e:
         db.rollback()  # Ensure rollback on failure
+
+        # Update transaction status to "failed"
+        transfer.status = "failed"
+        db.commit()
+        db.refresh(transfer)
+
         raise HTTPException(status_code=500, detail="Transaction failed. Please try again.")
     
     
@@ -350,4 +369,50 @@ def get_wallet_limit(id: str, db: Session, current_user: User):
     
     return {
         "wallet_limit": f"₦{user.transaction_limit_per_day:,.2f}"
+    }
+    
+    
+    
+
+
+
+
+
+def get_transaction_history(id: str, request: TransactionFilter, db: Session, current_user: models.User):
+    user = db.query(models.User).filter(models.User.id == id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Convert date strings to datetime objects
+    start_date = datetime.strptime(request.start_date, "%Y-%m-%d")
+    end_date = datetime.strptime(request.end_date, "%Y-%m-%d")
+
+    # Query transactions where the user is sender or receiver
+    transactions_query = db.query(models.Transfers).filter(
+        (models.Transfers.sender_id == user.id) | (models.Transfers.receiver_id == user.id),
+        models.Transfers.timestamp.between(start_date, end_date)
+    )
+
+    # Filter by transaction type if provided
+    if request.transaction_type:
+        transactions_query = transactions_query.filter(models.Transfers.transaction_type == request.transaction_type)
+
+    # Apply sorting (newest first by default)
+    if request.sort_order.lower() == "asc":
+        transactions_query = transactions_query.order_by(asc(models.Transfers.timestamp))
+    else:
+        transactions_query = transactions_query.order_by(desc(models.Transfers.timestamp))
+
+    # Count total transactions for pagination
+    total_count = transactions_query.count()
+    total_pages = (total_count + request.limit - 1) // request.limit  # Calculate total pages
+
+    # Apply pagination
+    transactions = transactions_query.offset((request.page - 1) * request.limit).limit(request.limit).all()
+
+    return {
+        "total_count": total_count,
+        "total_pages": total_pages,
+        "current_page": request.page,
+        "transactions": transactions
     }

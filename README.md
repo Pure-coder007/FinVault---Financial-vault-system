@@ -9,8 +9,6 @@
 | **POST** | `/register/` | Register a new user |
 | **POST** | `/login/` | Authenticate & get JWT token |
 | **POST** | `/logout/` | Logout user and invalidate token |
-| **POST** | `/enable-2fa/` | Enable Two-Factor Authentication (2FA) |
-| **POST** | `/disable-2fa/` | Disable 2FA |
 | **POST** | `/reset-password/` | Request password reset |
 | **POST** | `/update-password/` | Update user password |
 
@@ -24,22 +22,8 @@
 | **POST** | `/wallet/lock-funds/` | Lock funds for savings |
 | **POST** | `/wallet/unlock-funds/` | Withdraw locked savings after maturity |
 | **GET** | `/wallet/limits/` | Get wallet transaction limits |
-| **POST** | `/wallet/set-limit/` | Set custom transaction limits |
-
-## Card Management
-| Method | Endpoint | Description |
-|--------|----------|------------|
-| **POST** | `/cards/add/` | Add a new payment card |
-| **DELETE** | `/cards/remove/{card_id}/` | Remove a payment card |
-| **GET** | `/cards/list/` | List all saved payment cards |
-| **POST** | `/cards/set-default/{card_id}/` | Set a default payment card |
-
-## Transactions
-| Method | Endpoint | Description |
-|--------|----------|------------|
 | **GET** | `/transactions/` | Get transaction history (filter by date/type) |
-| **POST** | `/transactions/reverse/` | Reverse a failed transaction |
-| **GET** | `/transactions/status/{transaction_id}/` | Check transaction status |
+
 
 ## Payments
 | Method | Endpoint | Description |
@@ -48,14 +32,6 @@
 | **POST** | `/payment/approve/` | Approve a payment request |
 | **POST** | `/payment/reject/` | Reject a payment request |
 
-## Bill Payments
-| Method | Endpoint | Description |
-|--------|----------|------------|
-| **POST** | `/bills/airtime/` | Buy airtime |
-| **POST** | `/bills/electricity/` | Pay electricity bill |
-| **POST** | `/bills/data/` | Buy data subscription |
-| **POST** | `/bills/water/` | Pay water bill |
-| **POST** | `/bills/internet/` | Pay internet subscription |
 
 ## Loan Services
 | Method | Endpoint | Description |
@@ -66,11 +42,6 @@
 | **GET** | `/loans/status/{loan_id}/` | Check loan status |
 | **GET** | `/loans/history/` | Get loan repayment history |
 
-## Webhooks
-| Method | Endpoint | Description |
-|--------|----------|------------|
-| **POST** | `/webhooks/payment/` | Handle external payment webhook |
-| **POST** | `/webhooks/loan-approval/` | Handle loan approval webhook |
 
 ## Admin Controls
 | Method | Endpoint | Description |

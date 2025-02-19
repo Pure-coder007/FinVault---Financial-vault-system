@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from ..schemas import RegisterUser, ShowProfile, TopUp, VerifyAccount, ShowReceiverAccount, LockFunds, LockedResponse
+from ..schemas import RegisterUser, ShowProfile, TopUp, VerifyAccount, ShowReceiverAccount, LockFunds, LockedResponse, TransactionFilter
 from ..database import get_db
 from ..repository import users as userRepo
 from .. import auth
+from ..models import User
 
 
 
@@ -46,3 +47,12 @@ def lock_funds(request: LockFunds, user: str = Depends(auth.get_current_user),  
 @router.get("/limit", status_code=status.HTTP_200_OK)
 def get_wallet_limit(user: str = Depends(auth.get_current_user),  db: Session = Depends(get_db)):
     return userRepo.get_wallet_limit(user.id, db, user)
+
+
+@router.get("/transaction_history", status_code=status.HTTP_200_OK)
+def get_transaction_history(
+    request: TransactionFilter, 
+    user: User = Depends(auth.get_current_user),  
+    db: Session = Depends(get_db)
+):
+    return userRepo.get_transaction_history(user.id, request, db, user)

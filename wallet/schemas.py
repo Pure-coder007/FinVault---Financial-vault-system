@@ -80,3 +80,14 @@ class LockedResponse(BaseModel):
     
     class Config:
         from_attributes = True
+        
+        
+
+
+
+class TransactionFilter(BaseModel):
+    start_date: str
+    end_date: str
+    transaction_type: Optional[str] = None 
+    limit: int = 10  
+    sort_order: str = "desc"  

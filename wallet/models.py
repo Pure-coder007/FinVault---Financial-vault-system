@@ -2,12 +2,21 @@ from sqlalchemy import String, Column, Integer, ForeignKey, Float, DateTime
 from sqlalchemy.orm import relationship 
 from .database import Base
 from datetime import datetime
+import secrets
+
 
 
 
 # random id
 def random_id():
-    import secrets
+    return secrets.token_hex(16)
+
+
+def generate_ref():
+    return secrets.token_hex(16)
+
+
+def generate_session_id():
     return secrets.token_hex(16)
 
 
@@ -54,13 +63,23 @@ class Transfers(Base):
     __tablename__ = "transfers"
     
     id = Column(String, primary_key=True, default=random_id)
-    sender_id = Column(String, ForeignKey("users.id"))
-    receiver_id = Column(String, ForeignKey("users.id"))
+    sender_id = Column(String, ForeignKey("users.id"), nullable=False)
+    receiver_id = Column(String, ForeignKey("users.id"), nullable=False)
     amount = Column(Float, nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    date_sent = Column(DateTime, default=datetime.utcnow)
+    transaction_type = Column(String, nullable=False)
+    transaction_ref = Column(String, nullable=False, default=generate_ref)
+    session_id = Column(String, nullable=False, default=generate_session_id)
+    status = Column(String, nullable=False, default="pending") 
 
     sender = relationship("User", foreign_keys=[sender_id])
     receiver = relationship("User", foreign_keys=[receiver_id])
 
-    
-  
+    def __init__(self, sender_id, receiver_id, amount, date_sent=None, status="pending"):
+        self.id = random_id()
+        self.sender_id = sender_id
+        self.receiver_id = receiver_id
+        self.amount = amount
+        self.date_sent = date_sent or datetime.utcnow()
+        self.transaction_type = "debit" if sender_id else "credit"
+        self.status = status
