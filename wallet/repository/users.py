@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from ..utils.func import *
 from .. import auth, token, models
 from sqlalchemy import func
+from sqlalchemy import asc, desc
 
 
 
@@ -383,29 +384,41 @@ def get_transaction_history(id: str, request: TransactionFilter, db: Session, cu
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Convert date strings to datetime objects
-    start_date = datetime.strptime(request.start_date, "%Y-%m-%d")
-    end_date = datetime.strptime(request.end_date, "%Y-%m-%d")
+    if not request.transaction_type:
+        raise HTTPException(status_code=400, detail="Transaction type is required")
+    
+    
+    if request.transaction_type != "credit" and request.transaction_type != "debit":
+        raise HTTPException(status_code=400, detail="Invalid transaction type")
+
+    # Convert date strings to datetime objects safely
+    try:
+        start_date = datetime.strptime(request.start_date, "%Y-%m-%d")
+        end_date = datetime.strptime(request.end_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
     # Query transactions where the user is sender or receiver
     transactions_query = db.query(models.Transfers).filter(
         (models.Transfers.sender_id == user.id) | (models.Transfers.receiver_id == user.id),
-        models.Transfers.timestamp.between(start_date, end_date)
+        models.Transfers.date_sent.between(start_date, end_date)
     )
 
     # Filter by transaction type if provided
     if request.transaction_type:
         transactions_query = transactions_query.filter(models.Transfers.transaction_type == request.transaction_type)
 
-    # Apply sorting (newest first by default)
+    # Apply sorting (default: newest first)
     if request.sort_order.lower() == "asc":
-        transactions_query = transactions_query.order_by(asc(models.Transfers.timestamp))
+        transactions_query = transactions_query.order_by(asc(models.Transfers.date_sent))
     else:
-        transactions_query = transactions_query.order_by(desc(models.Transfers.timestamp))
+        transactions_query = transactions_query.order_by(desc(models.Transfers.date_sent))
+        
+    
 
     # Count total transactions for pagination
     total_count = transactions_query.count()
-    total_pages = (total_count + request.limit - 1) // request.limit  # Calculate total pages
+    total_pages = (total_count + request.limit - 1) // request.limit
 
     # Apply pagination
     transactions = transactions_query.offset((request.page - 1) * request.limit).limit(request.limit).all()
@@ -414,5 +427,13 @@ def get_transaction_history(id: str, request: TransactionFilter, db: Session, cu
         "total_count": total_count,
         "total_pages": total_pages,
         "current_page": request.page,
-        "transactions": transactions
+        "transactions": [
+        {
+            **transaction.__dict__,
+            "amount": f"{transaction.amount:,.2f}",
+            "transaction_type": "debit" if transaction.sender_id == user.id else "credit",
+            "receiver_name": "Own Wallet" if transaction.receiver.id == user.id else transaction.receiver.username
+        }
+        for transaction in transactions
+    ]
     }

@@ -79,7 +79,8 @@ class Transfers(Base):
         self.id = random_id()
         self.sender_id = sender_id
         self.receiver_id = receiver_id
-        self.amount = amount
+        # self.receiver_name = receiver.username
+        self.amount = f"{amount:.2f}"
         self.date_sent = date_sent or datetime.utcnow()
         self.transaction_type = "debit" if sender_id else "credit"
         self.status = status

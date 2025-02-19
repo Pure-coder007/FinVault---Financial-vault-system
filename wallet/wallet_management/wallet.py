@@ -5,6 +5,7 @@ from ..database import get_db
 from ..repository import users as userRepo
 from .. import auth
 from ..models import User
+from typing import Optional
 
 
 
@@ -49,10 +50,26 @@ def get_wallet_limit(user: str = Depends(auth.get_current_user),  db: Session = 
     return userRepo.get_wallet_limit(user.id, db, user)
 
 
+from fastapi import Query
+
 @router.get("/transaction_history", status_code=status.HTTP_200_OK)
 def get_transaction_history(
-    request: TransactionFilter, 
-    user: User = Depends(auth.get_current_user),  
+    start_date: str,
+    end_date: str,
+    transaction_type: Optional[str] = None,
+    page: int = 1,
+    limit: int = 10,
+    sort_order: str = "desc",
+    user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
+    request = TransactionFilter(
+        start_date=start_date,
+        end_date=end_date,
+        transaction_type = transaction_type.lower() if transaction_type else None,
+        page=page,
+        limit=limit,
+        sort_order=sort_order
+    )
+
     return userRepo.get_transaction_history(user.id, request, db, user)

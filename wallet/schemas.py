@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+from sqlalchemy import asc, desc
+
 
 
 class RegisterUser(BaseModel):
@@ -88,6 +90,7 @@ class LockedResponse(BaseModel):
 class TransactionFilter(BaseModel):
     start_date: str
     end_date: str
+    page: int = 1
     transaction_type: Optional[str] = None 
     limit: int = 10  
     sort_order: str = "desc"  
