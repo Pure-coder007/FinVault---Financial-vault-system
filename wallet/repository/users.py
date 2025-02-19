@@ -325,7 +325,6 @@ def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
         release_date=request.release_date.strftime("%Y-%m-%d")
     )
     
-    # Add locked fund to the session
     db.add(locked_fund)
     
 
