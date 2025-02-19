@@ -324,3 +324,30 @@ def lock_funds(id: str, request: LockFunds, db: Session, current_user: User):
     
 
 
+
+def get_wallet_limit(id: str, db: Session, current_user: User):
+    user = db.query(User).filter(User.id == id).first()
+    
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.level_1.lower() == "true":
+        return {
+            "message": f"You are a level one user. Your transaction limit per day is ₦{user.transaction_limit_per_day:,.2f}"
+        }
+    
+    if user.level_2.lower() == "true":
+        return {
+            "message": f"You are a level two user. Your transaction limit per day is ₦{user.transaction_limit_per_day:,.2f}"
+        }
+    
+    if user.level_3.lower() == "true":
+        return {
+            "message": f"You are a level three user. Your transaction limit per day is ₦{user.transaction_limit_per_day:,.2f}"
+        }
+    
+    
+    return {
+        "wallet_limit": f"₦{user.transaction_limit_per_day:,.2f}"
+    }

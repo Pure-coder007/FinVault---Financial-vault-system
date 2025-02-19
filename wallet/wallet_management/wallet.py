@@ -40,3 +40,9 @@ def verify_account(request: VerifyAccount, user: str = Depends(auth.get_current_
 @router.post("/lock", status_code=status.HTTP_200_OK)
 def lock_funds(request: LockFunds, user: str = Depends(auth.get_current_user),  db: Session = Depends(get_db)):
     return userRepo.lock_funds(user.id, request, db, user)
+
+
+
+@router.get("/limit", status_code=status.HTTP_200_OK)
+def get_wallet_limit(user: str = Depends(auth.get_current_user),  db: Session = Depends(get_db)):
+    return userRepo.get_wallet_limit(user.id, db, user)
