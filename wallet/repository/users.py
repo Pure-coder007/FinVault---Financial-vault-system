@@ -123,17 +123,16 @@ def create_user(
             background-color: #f4f4f4;
             margin: 0;
             padding: 20px;
-            background-image: url('https://media.istockphoto.com/id/1365436662/photo/successful-partnership.jpg?s=612x612&w=0&k=20&c=B1xspe9Q5WMsLc7Hc9clR8MWUL4bsK1MfUdDNVNR2Xg='); 
-            background-size: cover;
         }}
+        
         .container {{
             max-width: 600px;
             background: rgba(255, 255, 255, 0.9);
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
             margin: auto;
         }}
+        
         .header {{
             background: #007bff;
             color: white;
@@ -145,20 +144,25 @@ def create_user(
         }}
         .logo {{
             text-align: center;
-            margin-bottom: 20px;
+            margin-top: 20px; 
+            padding-top:5px;
+            
         }}
         .logo img {{
-            max-width: 150px; 
-            height: auto;
+            max-width: 100%; /* Ensures the logo is responsive */
+            height: auto;    /* Maintains aspect ratio */
+            border-radius: 10px; /* Optional: adds rounded corners */
         }}
         .content {{
             padding: 20px;
             font-size: 16px;
             color: #333;
+            margin-top: -20px; /* Adjusted margin for better spacing */
         }}
         .content p {{
             line-height: 1.6;
         }}
+        
         .footer {{
             text-align: center;
             padding: 10px;
@@ -186,11 +190,9 @@ def create_user(
     <div class="container">
         
         <div class="logo">
-            <img src="https://res.cloudinary.com/duyoxldib/image/upload/v1740058172/FinVault_3_izpuhb.png" alt="Company Logo"> 
+            <img src="https://res.cloudinary.com/duyoxldib/image/upload/v1740063400/Screenshot_2025-02-20_at_3.55.44_PM_fxktdp.png" alt="Company Logo"> 
         </div>
-        
-        <hr>
-        
+            
         <div class="content">
             <p>Dear <strong>{new_user.username}</strong>,</p>
             
@@ -222,6 +224,7 @@ def create_user(
 
 </body>
 </html>
+
 """
 
     
