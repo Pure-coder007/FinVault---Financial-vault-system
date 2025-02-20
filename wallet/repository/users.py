@@ -23,10 +23,6 @@ load_dotenv()
 
 
 
-
-
-
-
 def create_user(
     request: RegisterUser, 
     db: Session, 
@@ -188,11 +184,12 @@ def create_user(
 <body>
 
     <div class="container">
-        <div class="header">Welcome to Our Platform!</div>
         
         <div class="logo">
-            <img src="https://cdn5.vectorstock.com/i/1000x1000/80/74/financial-accounting-logo-vector-27218074.jpg" alt="Company Logo"> 
+            <img src="https://res.cloudinary.com/duyoxldib/image/upload/v1740058172/FinVault_3_izpuhb.png" alt="Company Logo"> 
         </div>
+        
+        <hr>
         
         <div class="content">
             <p>Dear <strong>{new_user.username}</strong>,</p>

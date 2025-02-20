@@ -1,0 +1,31 @@
+services:
+  web:
+    build: .
+    command: sh -c "uvicorn wallet.main:app --reload --port=8000 --host=0.0.0.0"
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app  # Mount the current directory to /app in the container
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/walet_db_2
+
+  # Example for DB connection
+
+    depends_on:
+      - db  # Ensure the database is started before the web service
+
+  db:
+    image: postgres:latest  # Use the latest PostgreSQL image
+    restart: always
+    environment:
+      POSTGRES_DB: walet_db_2
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password  # Change this to a secure password
+      POSTGRES_PORT: 5432
+    ports:
+      - "5432:5432"  # Expose PostgreSQL port
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Persist database data
+
+volumes:
+  postgres_data:  # Named volume for PostgreSQL data
