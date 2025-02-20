@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 
 # Database URL
-SQLALCHEMY_DATABASE_URL = "postgresql://user:password@localhost:5432/walet_db_2"
+SQLALCHEMY_DATABASE_URL = "postgresql://user:password@db:5432/walet_db_2"
 
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL) 
@@ -19,4 +19,5 @@ def get_db():
         yield db
     finally:
         db.close()
-        
+
+# hello
