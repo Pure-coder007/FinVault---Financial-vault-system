@@ -149,7 +149,7 @@ def create_user(
             
         }}
         .logo img {{
-            max-width: 100%; /* Ensures the logo is responsive */
+            max-width: 80%; /* Ensures the logo is responsive */
             height: auto;    /* Maintains aspect ratio */
             border-radius: 10px; /* Optional: adds rounded corners */
         }}
