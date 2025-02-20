@@ -54,6 +54,12 @@ def create_user(
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail="Password must contain at least one special character"
         )
+        
+    if not request.username.isalpha():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Username must contain only letters"
+        )
 
     # Check if passwords match
     if request.password != request.confirm_password:
@@ -69,29 +75,71 @@ def create_user(
             detail="Transaction PIN must be 4 digits"
         )
     
-    # Validate email
-    if "@" not in request.email:
+    
+    if "@" not in request.email or "." not in request.email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail="Invalid email address"
         )
 
-    # Check if email, phone, or username already exists
+    
+    local_part, domain_part = request.email.split("@", 1)
+
+    
+    if not domain_part or "." not in domain_part or domain_part.startswith(".") or domain_part.endswith("."):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid email address: domain must be valid"
+        )
+    
+
     if email_exists(request.email, db):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail="Email already exists"
         )
+        
     if phone_number_exists(request.phone, db):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail="Phone number already exists"
         )
+    
+    if not request.phone.isdigit():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number must be digits"
+        )
+    phone  = str(request.phone)
+    
+    if len(phone) != 13:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number must be 13 digits in total and also start with '234'."
+        )
+        
+        
     if username_exists(request.username, db):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail="Username already exists"
         )
+        
+    bvn = str(request.bvn)
+    nin = str(request.nin)
+        
+    if len(bvn) != 11 and not bvn.isdigit():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid BVN"
+        )
+        
+    if len(nin) != 11 and not nin.isdigit():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid BVN"
+        )
+        
 
     # Create user instance
     new_user = User(
