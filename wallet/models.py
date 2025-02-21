@@ -9,7 +9,7 @@ import secrets
 
 # random id
 def random_id():
-    return secrets.token_hex(16)
+    return secrets.token_hex(3)
 
 
 def generate_ref():

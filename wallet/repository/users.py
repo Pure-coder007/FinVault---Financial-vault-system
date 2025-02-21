@@ -110,6 +110,7 @@ def create_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Phone number must be digits"
         )
+        
     phone  = str(request.phone)
     
     if len(phone) != 13:
@@ -124,9 +125,9 @@ def create_user(
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail="Username already exists"
         )
-        
-    bvn = str(request.bvn)
-    nin = str(request.nin)
+    
+    # bvn = str(request.bvn)
+    # nin = str(request.nin)
         
     if len(bvn) != 11 and not bvn.isdigit():
         raise HTTPException(

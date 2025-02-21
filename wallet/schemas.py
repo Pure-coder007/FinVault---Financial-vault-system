@@ -12,8 +12,8 @@ class RegisterUser(BaseModel):
     confirm_password: str
     phone: str
     transaction_pin: str
-    bvn: Optional[str]
-    nin: Optional[str]
+    bvn: Optional[int]
+    nin: Optional[int]
 
     class Config:
         from_attributes = True
