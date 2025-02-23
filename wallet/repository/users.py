@@ -126,19 +126,20 @@ def create_user(
             detail="Username already exists"
         )
     
-    # bvn = str(request.bvn)
-    # nin = str(request.nin)
-        
-    if len(bvn) != 11 and not bvn.isdigit():
+    
+            
+        # Validate BVN only if provided
+    if request.bvn and (len(request.bvn) != 11 or not request.bvn.isdigit()):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid BVN"
         )
-        
-    if len(nin) != 11 and not nin.isdigit():
+
+    # Validate NIN only if provided
+    if request.nin and (len(request.nin) != 11 or not request.nin.isdigit()):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid BVN"
+            detail="Invalid NIN"
         )
         
 
