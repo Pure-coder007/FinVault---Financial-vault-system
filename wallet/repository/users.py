@@ -459,7 +459,7 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User, backgro
     # Define email templates
     email_subject_sender = "Transfer Notification"
     email_subject_recipient = "Transfer Notification"
-
+    transaction_type = "Credit" if user.id == 'user' else "Debit"
     email_body_sender = f"""
 <!DOCTYPE html>
 <html>
@@ -545,7 +545,7 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User, backgro
                 </tr>
                 <tr>
                     <td>Transaction Type</td>
-                    <td><strong>Transfer</strong></td>
+                    <td><strong>{transaction_type}</strong></td>
                 </tr>
                 <tr>
                     <td>Amount</td>
@@ -685,7 +685,7 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User, backgro
                 </tr>
                 <tr>
                     <td>Transaction Type</td>
-                    <td><strong>Transfer</strong></td>
+                    <td><strong>{ transaction_type }</strong></td>
                 </tr>
                 <tr>
                     <td>Amount</td>
@@ -764,6 +764,7 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User, backgro
 
     except Exception as e:
         db.rollback()  # Rollback on failure
+        print(e)
 
         # Update transfer status to "failed"
         transfer.status = "failed"
@@ -771,8 +772,9 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User, backgro
         db.refresh(transfer)
         
         # Send failure notifications
-        background_tasks.add_task(send_email, email_subject_sender, [user.email], email_body_sender)
-        background_tasks.add_task(send_email, email_subject_recipient, [recipient.email], email_body_recipient)
+        # background_tasks.add_task(send_email, email_subject_sender, [user.email], email_body_sender)
+        # background_tasks.add_task(send_email, email_subject_recipient, [recipient.email], email_body_recipient)
+        
         raise HTTPException(status_code=500, detail="Transaction failed. Please try again.")
     
 
