@@ -13,7 +13,7 @@ load_dotenv()
 config = context.config
 
 # Fetch and set database URL
-database_url = os.environ.get("DATABASE_URL")
+database_url = os.environ.get("SQLALCHEMY_DATABASE_URI")
 if not database_url:
     raise ValueError("The environment variable 'SQLALCHEMY_DATABASE_URI' is not set.")
 config.set_main_option("sqlalchemy.url", database_url)

@@ -71,11 +71,12 @@ class Transfers(Base):
     transaction_ref = Column(String, nullable=False, default=generate_ref)
     session_id = Column(String, nullable=False, default=generate_session_id)
     status = Column(String, nullable=False, default="pending") 
+    narration = Column(String, nullable=False, default="")
 
     sender = relationship("User", foreign_keys=[sender_id])
     receiver = relationship("User", foreign_keys=[receiver_id])
 
-    def __init__(self, sender_id, receiver_id, amount, date_sent=None, status="pending"):
+    def __init__(self, sender_id, receiver_id, amount, date_sent=None, status="pending", narration=""):
         self.id = random_id()
         self.sender_id = sender_id
         self.receiver_id = receiver_id
@@ -84,3 +85,4 @@ class Transfers(Base):
         self.date_sent = date_sent or datetime.utcnow()
         self.transaction_type = "debit" if sender_id else "credit"
         self.status = status
+        self.narration = narration

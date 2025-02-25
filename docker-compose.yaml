@@ -7,7 +7,7 @@ services:
     volumes:
       - .:/app  # Mount the current directory to /app in the container
     environment:
-      - DATABASE_URL=postgresql://user:password@db:5432/walet_db_2
+      - SQLALCHEMY_DATABASE_URL=postgresql://user:password@db:5432/walet_db_2
 
   # Example for DB connection
 

@@ -42,6 +42,7 @@ class TopUp(BaseModel):
     account_number: str
     amount: float
     transaction_pin: str
+    narration: Optional[str] = None
     
     class Config:
         from_attributes = True

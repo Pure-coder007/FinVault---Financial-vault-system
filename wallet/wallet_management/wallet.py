@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from ..schemas import RegisterUser, ShowProfile, TopUp, VerifyAccount, ShowReceiverAccount, LockFunds, LockedResponse, TransactionFilter
 from ..database import get_db
@@ -28,8 +28,8 @@ def top_up_account(request: TopUp, user: str = Depends(auth.get_current_user),  
 
 
 @router.post("/transfer/", status_code=status.HTTP_200_OK)
-def send_money(request: TopUp, user: str = Depends(auth.get_current_user),  db: Session = Depends(get_db)):
-    return userRepo.send_money(user.id, request, db, user)
+def send_money(request: TopUp, user: str = Depends(auth.get_current_user),  db: Session = Depends(get_db), BackgroundTasks = BackgroundTasks()):
+    return userRepo.send_money(user.id, request, db, user, BackgroundTasks)
 
 
 

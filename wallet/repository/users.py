@@ -359,6 +359,7 @@ def add_funds(id: str, request: TopUp, db: Session, current_user: models.User):
         user.book_balance += excess_amount  # Move excess funds to book balance
         db.commit()
         db.refresh(user)
+        
 
         return {
             "message": f"₦{amount_to_wallet:,.2f} added to main wallet, ₦{excess_amount:,.2f} moved to book balance due to wallet limit.",
@@ -391,28 +392,25 @@ def is_upgraded(id: str, db: Session, current_user: models.User):
 
 
 
-    
-
-
-# Send money to another user
-def send_money(id: str, request: TopUp, db: Session, current_user: User):
+def send_money(id: str, request: TopUp, db: Session, current_user: User, background_tasks: BackgroundTasks):
+    # Fetch sender and recipient details
     user = db.query(models.User).filter(models.User.id == id).first()
     recipient = db.query(models.User).filter(models.User.account_number == request.account_number).first()
     
+    # Validate sender and recipient
     if user.id == recipient.id:
-        raise HTTPException(status_code=400, detail="Sorry you cannot do a transfer to yourself.")
-
+        raise HTTPException(status_code=400, detail="Sorry, you cannot transfer money to yourself.")
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User not found.")
     if not recipient:
-        raise HTTPException(status_code=400, detail="Invalid account number")
+        raise HTTPException(status_code=400, detail="Invalid account number.")
     if request.amount <= 0:
         raise HTTPException(status_code=400, detail="Please enter a valid amount.")
     if request.amount > user.wallet_balance:
-        raise HTTPException(status_code=400, detail="Insufficient funds")
+        raise HTTPException(status_code=400, detail="Insufficient funds.")
     if not bcrypt.checkpw(request.transaction_pin.encode(), user.transaction_pin.encode()):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid transaction pin")
-    
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid transaction pin.")
+
     # Get transaction limits
     max_per_transaction = user.transaction_limit_per_transaction
     max_per_day = user.transaction_limit_per_day
@@ -424,7 +422,7 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User):
             detail=f"You cannot transfer more than ₦{max_per_transaction:,.2f} in a single transaction until you upgrade your account."
         )
 
-    # Check Daily Transfer Limit
+    # Check daily transfer limit
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = today_start + timedelta(days=1)
 
@@ -450,38 +448,332 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User):
         receiver_id=recipient.id,
         amount=request.amount,
         date_sent=datetime.utcnow(),
-        status="pending"
+        status="pending",
+        narration=request.narration
     )
+    
     db.add(transfer)
     db.commit()
     db.refresh(transfer)
 
+    # Define email templates
+    email_subject_sender = "Transfer Notification"
+    email_subject_recipient = "Transfer Notification"
+
+    email_body_sender = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }}
+        .container {{
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 5px;
+            margin: auto;
+        }}
+        .header {{
+            background: linear-gradient(to right, #404784, #00A550);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            border-radius: 10px 10px 0 0;
+        }}
+        .logo {{
+            text-align: center;
+            margin-top: 20px; 
+        }}
+        .logo img {{
+            max-width: 80%;
+            height: auto;
+            border-radius: 10px;
+        }}
+        .content {{
+            padding: 20px;
+            font-size: 16px;
+            color: #333;
+        }}
+        .content p {{
+            line-height: 1.6;
+        }}
+        .footer {{
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+            color: #666;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }}
+        th, td {{
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }}
+        th {{
+            background: linear-gradient(to right, #404784, #00A550);
+            color: white;
+        }}
+        .highlight {{
+            background-color: #e7f3fe;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">TRANSFER CONFIRMATION</div>
+        <div class="logo">
+            <img src="https://res.cloudinary.com/duyoxldib/image/upload/v1740063400/Screenshot_2025-02-20_at_3.55.44_PM_fxktdp.png" alt="Company Logo"> 
+        </div>
+        <div class="content">
+            <p>Dear <strong>{user.username}</strong>,</p>
+            <p>Below are the details of your transaction:</p>
+            <table>
+                <tr>
+                    <th>Detail</th>
+                    <th>Information</th>
+                </tr>
+                <tr>
+                    <td>Transaction Type</td>
+                    <td><strong>Transfer</strong></td>
+                </tr>
+                <tr>
+                    <td>Amount</td>
+                    <td>₦{request.amount:,.2f}</td>
+                </tr>
+                <tr class="highlight">
+                    <td>New Wallet Balance</td>
+                    <td>₦{user.wallet_balance - request.amount:,.2f}</td>
+                </tr>
+                <tr>
+                    <td>Sender</td>
+                    <td>{user.username}</td>
+                </tr>
+                <tr>
+                    <td>Receiver</td>
+                    <td>{recipient.username}</td>
+                </tr>
+                <tr>
+                    <td>Book Balance</td>
+                    <td>₦{user.book_balance:,.2f}</td>
+                </tr>
+                <tr>
+                    <td>Transaction Date</td>
+                    <td>{datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}</td>
+                </tr>
+                <tr>
+                    <td>Narration</td>
+                    <td>{request.narration}</td>
+                </tr>
+                <tr>
+                    <td>Transaction Reference</td>
+                    <td>{transfer.transaction_ref}</td>
+                </tr>
+                <tr>
+                    <td>Session ID</td>
+                    <td>{transfer.session_id}</td>
+                </tr>
+                <tr>
+                    <td>Status</td>
+                    <td><strong>Success</strong></td>
+                </tr>
+            </table>
+            <p>If you have any questions or concerns regarding this transaction, please do not hesitate to reach out to our support team at <a href="mailto:support@finvault.com">support@finvault.com</a>.</p>
+            <p>Thank you for choosing FinVault!</p>
+        </div>
+        <div class="footer">
+            &copy; {datetime.utcnow().year} FinVault | All rights reserved.<br>
+            <a href="https://www.finvault.com/terms" target="_blank">Terms of Service</a> | <a href="https://www.finvault.com/privacy" target="_blank">Privacy Policy</a>
+        </div>
+    </div>
+</body>
+</html>
+    """
+
+    email_body_recipient = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }}
+        .container {{
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 5px;
+            margin: auto;
+        }}
+        .header {{
+            background: linear-gradient(to right, #404784, #00A550);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            border-radius: 10px 10px 0 0;
+        }}
+        .logo {{
+            text-align: center;
+            margin-top: 20px; 
+        }}
+        .logo img {{
+            max-width: 80%;
+            height: auto;
+            border-radius: 10px;
+        }}
+        .content {{
+            padding: 20px;
+            font-size: 16px;
+            color: #333;
+        }}
+        .content p {{
+            line-height: 1.6;
+        }}
+        .footer {{
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+            color: #666;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }}
+        th, td {{
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }}
+        th {{
+            background: linear-gradient(to right, #404784, #00A550);
+            color: white;
+        }}
+        .highlight {{
+            background-color: #e7f3fe;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">TRANSFER NOTIFICATION</div>
+        <div class="logo">
+            <img src="https://res.cloudinary.com/duyoxldib/image/upload/v1740063400/Screenshot_2025-02-20_at_3.55.44_PM_fxktdp.png" alt="Company Logo"> 
+        </div>
+        <div class="content">
+            <p>Dear <strong>{recipient.username}</strong>,</p>
+            <p>You have received a transfer from {user.username}. Below are the details:</p>
+            <table>
+                <tr>
+                    <th>Detail</th>
+                    <th>Information</th>
+                </tr>
+                <tr>
+                    <td>Transaction Type</td>
+                    <td><strong>Transfer</strong></td>
+                </tr>
+                <tr>
+                    <td>Amount</td>
+                    <td>₦{request.amount:,.2f}</td>
+                </tr>
+                <tr class="highlight">
+                    <td>New Wallet Balance</td>
+                    <td>₦{recipient.wallet_balance + request.amount:,.2f}</td>
+                </tr>
+                <tr>
+                    <td>Sender</td>
+                    <td>{user.username}</td>
+                </tr>
+                <tr>
+                    <td>Receiver</td>
+                    <td>{recipient.username}</td>
+                </tr>
+                <tr>
+                    <td>Transaction Date</td>
+                    <td>{datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}</td>
+                </tr>
+                <tr>
+                    <td>Narration</td>
+                    <td>{request.narration}</td>
+                </tr>
+                <tr>
+                    <td>Transaction Reference</td>
+                    <td>{transfer.transaction_ref}</td>
+                </tr>
+                <tr>
+                    <td>Session ID</td>
+                    <td>{transfer.session_id}</td>
+                </tr>
+                <tr>
+                    <td>Status</td>
+                    <td><strong>Success</strong></td>
+                </tr>
+            </table>
+            <p>If you have any questions or concerns regarding this transaction, please do not hesitate to reach out to our support team at <a href="mailto:support@finvault.com">support@finvault.com</a>.</p>
+            <p>Thank you for choosing FinVault!</p>
+        </div>
+        <div class="footer">
+            &copy; {datetime.utcnow().year} FinVault | All rights reserved.<br>
+            <a href="https://www.finvault.com/terms" target="_blank">Terms of Service</a> | <a href="https://www.finvault.com/privacy" target="_blank">Privacy Policy</a>
+        </div>
+    </div>
+</body>
+</html>
+    """
+
     try:
+        # Deduct amount from sender and add to recipient
         user.wallet_balance -= request.amount
         recipient.wallet_balance += request.amount
 
+        # Update transfer status to "completed"
         transfer.status = "completed"
         db.commit()
         db.refresh(user)
         db.refresh(recipient)
         db.refresh(transfer)
+        
+        # Send email notifications
+        background_tasks.add_task(send_email, email_subject_sender, [user.email], email_body_sender)
+        background_tasks.add_task(send_email, email_subject_recipient, [recipient.email], email_body_recipient)
 
-        return {"message": f"Transfer of ₦{request.amount:,.2f} successful to {recipient.username}",
-                "wallet_balance": f"₦{user.wallet_balance:,.2f}",
-                "book_balance": f"₦{user.book_balance:,.2f}",
-                "transaction_ref": transfer.transaction_ref,
-                "session_id": transfer.session_id}
+        return {
+            "message": f"Transfer of ₦{request.amount:,.2f} successful to {recipient.username}",
+            "wallet_balance": f"₦{user.wallet_balance:,.2f}",
+            "book_balance": f"₦{user.book_balance:,.2f}",
+            "narration": request.narration,
+            "date_sent": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+            "transaction_ref": transfer.transaction_ref,
+            "session_id": transfer.session_id
+        }
 
     except Exception as e:
-        db.rollback()  # Ensure rollback on failure
+        db.rollback()  # Rollback on failure
 
-        # Update transaction status to "failed"
+        # Update transfer status to "failed"
         transfer.status = "failed"
         db.commit()
         db.refresh(transfer)
-
+        
+        # Send failure notifications
+        background_tasks.add_task(send_email, email_subject_sender, [user.email], email_body_sender)
+        background_tasks.add_task(send_email, email_subject_recipient, [recipient.email], email_body_recipient)
         raise HTTPException(status_code=500, detail="Transaction failed. Please try again.")
-    
     
 
 
