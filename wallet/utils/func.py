@@ -24,7 +24,7 @@ mail_config = ConnectionConfig(
     MAIL_FROM=os.getenv("MAIL_DEFAULT_SENDER"),
     MAIL_PORT=int(os.getenv("MAIL_PORT")),
     MAIL_SERVER=os.getenv("MAIL_SERVER"),
-    MAIL_STARTTLS=os.getenv("MAIL_STARTTLS") == "True",  # Use correct boolean conversion
+    MAIL_STARTTLS=os.getenv("MAIL_STARTTLS") == "True",  
     MAIL_SSL_TLS=os.getenv("MAIL_SSL_TLS") == "True",  # Use correct boolean conversion
     USE_CREDENTIALS=True
 )
