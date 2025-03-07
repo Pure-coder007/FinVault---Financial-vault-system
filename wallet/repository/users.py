@@ -676,7 +676,7 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User, backgro
             <img src="https://res.cloudinary.com/duyoxldib/image/upload/v1740063400/Screenshot_2025-02-20_at_3.55.44_PM_fxktdp.png" alt="Company Logo"> 
         </div>
         <div class="content">
-            <p>Dear <strong>{recipient.username}</strong>,</p>
+            <p>Dear <strong>{recipient.username} {recipient.last_name}</strong>,</p>
             <p>You have received a transfer from {user.username}. Below are the details:</p>
             <table>
                 <tr>
@@ -753,7 +753,7 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User, backgro
         background_tasks.add_task(send_email, email_subject_recipient, [recipient.email], email_body_recipient)
 
         return {
-            "message": f"Transfer of ₦{request.amount:,.2f} successful to {recipient.username}",
+            "message": f"Transfer of ₦{request.amount:,.2f} successful to {recipient.username} {recipient.last_name}.",
             "wallet_balance": f"₦{user.wallet_balance:,.2f}",
             "book_balance": f"₦{user.book_balance:,.2f}",
             "narration": request.narration,
