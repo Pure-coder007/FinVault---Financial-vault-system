@@ -7,6 +7,7 @@ from sqlalchemy import asc, desc
 
 class RegisterUser(BaseModel):
     username: str
+    last_name: str
     email: str
     password: str
     confirm_password: str

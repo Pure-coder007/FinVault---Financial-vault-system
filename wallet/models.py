@@ -24,6 +24,7 @@ class User(Base):
     __tablename__ = "users"
     id = Column(String, primary_key=True, default=random_id)
     username = Column(String)
+    last_name = Column(String)
     email = Column(String)
     account_number = Column(String)
     phone = Column(String)

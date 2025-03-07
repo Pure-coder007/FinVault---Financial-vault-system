@@ -459,7 +459,7 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User, backgro
     # Define email templates
     email_subject_sender = "Transfer Notification"
     email_subject_recipient = "Transfer Notification"
-    transaction_type = "Credit" if user.id == 'user' else "Debit"
+    transaction_type = "Debit" if user.id == 'user' else "Credit"
     email_body_sender = f"""
 <!DOCTYPE html>
 <html>
@@ -536,7 +536,7 @@ def send_money(id: str, request: TopUp, db: Session, current_user: User, backgro
             <img src="https://res.cloudinary.com/duyoxldib/image/upload/v1740063400/Screenshot_2025-02-20_at_3.55.44_PM_fxktdp.png" alt="Company Logo"> 
         </div>
         <div class="content">
-            <p>Dear <strong>{user.username}</strong>,</p>
+            <p>Dear <strong>{user.username} {user.last_name}</strong>,</p>
             <p>Below are the details of your transaction:</p>
             <table>
                 <tr>
