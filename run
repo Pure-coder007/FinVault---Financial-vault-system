@@ -1,0 +1,17 @@
+#! /bin/bash
+
+
+docker image prune -f
+docker volume prune -f
+docker ps
+docker image prune -f
+docker volume prune -f
+docker ps
+pip install --upgrade pip
+pip install anyio==3.7.1
+# pip install -r requirements.txt
+pip install --no-cache-dir -r requirements.txt
+
+docker compose up --build 
+
+docker logs -f walletfastapi-db-1
