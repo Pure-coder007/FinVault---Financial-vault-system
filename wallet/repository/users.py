@@ -146,6 +146,7 @@ def create_user(
     # Create user instance
     new_user = User(
         username=request.username,
+        last_name=request.last_name,
         email=request.email,
         phone=request.phone,
         password=Hash.bcrypt(request.password),
