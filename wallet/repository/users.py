@@ -143,7 +143,7 @@ def create_user(
         )
         
 
-    # Create user instance
+    # Create user instance.
     new_user = User(
         username=request.username,
         last_name=request.last_name,
