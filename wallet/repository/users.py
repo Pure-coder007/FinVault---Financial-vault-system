@@ -61,7 +61,7 @@ def create_user(
             detail="Username must contain only letters"
         )
 
-    # Check if passwords match
+    # Check if passwords match.
     if request.password != request.confirm_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
